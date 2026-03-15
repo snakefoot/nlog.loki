@@ -41,6 +41,12 @@ public class LokiTarget : AsyncTaskTarget
     public bool OrderWrites { get; set; } = false;
 
     /// <summary>
+    /// Ignore SSL certificate errors (e.g. self-signed certificates). Not recommended for production use, but can be useful for testing or internal applications.
+    /// </summary>
+    /// <remarks>Default: <see langword="false"/></remarks>
+    public bool IgnoreSslErrors { get; set; }
+
+    /// <summary>
     /// Defines if the HTTP messages sent to Loki must be gzip compressed, and with which compression level.
     /// Possible values: NoCompression, Optimal (default), Fastest and SmallestSize (.NET 6 support only).
     /// </summary>
@@ -53,14 +59,12 @@ public class LokiTarget : AsyncTaskTarget
     [ArrayParameter(typeof(LokiTargetLabel), "label")]
     public IList<LokiTargetLabel> Labels { get; } = new List<LokiTargetLabel>();
 
-    private static Func<Uri, string, string, string, Uri, string, string, ILokiHttpClient> LokiHttpClientFactory { get; } = CreateLokiHttpClient;
-
     private const string TenantHeader = "X-Scope-OrgID";
 
     public LokiTarget()
     {
         _lazyLokiTransport = new Lazy<ILokiTransport>(
-            () => GetLokiTransport(Endpoint, Tenant, Username, Password, OrderWrites, ProxyUrl, ProxyUser, ProxyPassword),
+            () => GetLokiTransport(),
             LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
@@ -195,43 +199,34 @@ public class LokiTarget : AsyncTaskTarget
         return staticLabels != null ? new LokiLabels(staticLabels) : null;
     }
 
-    internal ILokiTransport GetLokiTransport(
-        Layout endpoint, Layout tenant, Layout username, Layout password, bool orderWrites,
-        Layout proxyUrl, Layout proxyUser, Layout proxyPassword)
+    internal ILokiTransport GetLokiTransport()
     {
-        var endpointUri = RenderLogEvent(endpoint, LogEventInfo.CreateNullEvent());
-        var tnt = RenderLogEvent(tenant, LogEventInfo.CreateNullEvent());
-        var usr = RenderLogEvent(username, LogEventInfo.CreateNullEvent());
-        var pwd = RenderLogEvent(password, LogEventInfo.CreateNullEvent());
-        var pxUser = RenderLogEvent(proxyUser, LogEventInfo.CreateNullEvent());
-        var pxPassword = RenderLogEvent(proxyPassword, LogEventInfo.CreateNullEvent());
-
-        var pxUrl = RenderLogEvent(proxyUrl, LogEventInfo.CreateNullEvent());
-        Uri.TryCreate(pxUrl, UriKind.Absolute, out var pxUri);
-
+        var endpointUri = RenderLogEvent(Endpoint, LogEventInfo.CreateNullEvent());
         if(Uri.TryCreate(endpointUri, UriKind.Absolute, out var uri))
         {
             if(uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
                 return new HttpLokiTransport(
-                    LokiHttpClientFactory(uri, tnt, usr, pwd, pxUri, pxUser, pxPassword),
-                    orderWrites,
+                    CreateLokiHttpClient(uri),
+                    OrderWrites,
                     CompressionLevel);
         }
 
-        InternalLogger.Warn("LokiTarget: Unable to create a valid Loki Endpoint URI from '{0}'", endpoint);
+        InternalLogger.Warn("LokiTarget: Unable to create a valid Loki Endpoint URI from '{0}'", endpointUri);
         return new NullLokiTransport();
     }
 
-    internal static ILokiHttpClient CreateLokiHttpClient(
-        Uri uri,
-        string tenant,
-        string username,
-        string password,
-        Uri proxyUri,
-        string proxyUser,
-        string proxyPassword)
+    private ILokiHttpClient CreateLokiHttpClient(Uri uri)
     {
         InternalLogger.Debug("LogiTarget: Creating HttpClient to Loki Endpoint: {0}", uri);
+
+        var tenant = RenderLogEvent(Tenant, LogEventInfo.CreateNullEvent());
+        var username = RenderLogEvent(Username, LogEventInfo.CreateNullEvent());
+        var password = RenderLogEvent(Password, LogEventInfo.CreateNullEvent());
+        var proxyUser = RenderLogEvent(ProxyUser, LogEventInfo.CreateNullEvent());
+        var proxyPassword = RenderLogEvent(ProxyPassword, LogEventInfo.CreateNullEvent());
+
+        var pxUrl = RenderLogEvent(ProxyUrl, LogEventInfo.CreateNullEvent());
+        Uri.TryCreate(pxUrl, UriKind.Absolute, out var proxyUri);
 
         // Configure handler for proxy settings
 #if NETSTANDARD || NETFRAMEWORK
@@ -263,6 +258,15 @@ public class LokiTarget : AsyncTaskTarget
                         Password = proxyPassword ?? string.Empty
                     };
             }
+        }
+
+        if(IgnoreSslErrors)
+        {
+#if NETSTANDARD || NETFRAMEWORK
+            handler.ServerCertificateCustomValidationCallback = (message, certificate, chain, errors) => true;
+#else
+            handler.SslOptions.RemoteCertificateValidationCallback = (message, certificate, chain, errors) => true;
+#endif
         }
 
         // Here, inject http proxy settings
