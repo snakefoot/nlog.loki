@@ -47,6 +47,17 @@ public class LokiTarget : AsyncTaskTarget
     public bool IgnoreSslErrors { get; set; }
 
     /// <summary>
+    /// Get or sets whether to expect http 100-Continue behavior, where the client sends headers and expects the http-server to reply with http-status 100-continue before sending the http-request body.
+    ///
+    /// This can introduce additional latency for the http-request, especially when http-server does not support the protocol.
+    /// </summary>
+#if NETFRAMEWORK
+    public bool? Expect100Continue { get; set; } = false;
+#else
+    public bool? Expect100Continue { get; set; }
+#endif
+
+    /// <summary>
     /// Defines if the HTTP messages sent to Loki must be gzip compressed, and with which compression level.
     /// Possible values: NoCompression, Optimal (default), Fastest and SmallestSize (.NET 6 support only).
     /// </summary>
@@ -274,6 +285,8 @@ public class LokiTarget : AsyncTaskTarget
         {
             BaseAddress = uri
         };
+        if (Expect100Continue.HasValue)
+            httpClient.DefaultRequestHeaders.ExpectContinue = Expect100Continue.Value;
         if(!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
         {
             var byteArray = Encoding.ASCII.GetBytes($"{username}:{password}");
