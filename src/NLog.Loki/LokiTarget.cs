@@ -70,6 +70,14 @@ public class LokiTarget : AsyncTaskTarget
     [ArrayParameter(typeof(LokiTargetLabel), "label")]
     public IList<LokiTargetLabel> Labels { get; } = new List<LokiTargetLabel>();
 
+    /// <summary>
+    /// Loki structured metadata, rendered per event. Unlike labels these are not indexed and do not
+    /// take part in stream identity, so high-cardinality values (request id, user id, trace id) are
+    /// safe here where they would be ruinous as labels.
+    /// </summary>
+    [ArrayParameter(typeof(LokiTargetMetadata), "metadata")]
+    public IList<LokiTargetMetadata> Metadata { get; } = new List<LokiTargetMetadata>();
+
     private const string TenantHeader = "X-Scope-OrgID";
 
     public LokiTarget()
@@ -109,7 +117,28 @@ public class LokiTarget : AsyncTaskTarget
     private LokiEvent GetLokiEvent(LogEventInfo logEvent)
     {
         var labels = _defaultStaticLabels ?? RenderAndMapLokiLabels(Labels, logEvent, EventPropertiesAsLabels);
-        return new LokiEvent(labels, logEvent.TimeStamp, RenderLogEvent(Layout, logEvent));
+        return new LokiEvent(labels, logEvent.TimeStamp, RenderLogEvent(Layout, logEvent), RenderMetadata(logEvent));
+    }
+
+    private IReadOnlyList<LokiMetadata> RenderMetadata(LogEventInfo logEvent)
+    {
+        if(Metadata.Count == 0)
+            return null;
+
+        List<LokiMetadata> rendered = null;
+        for(var i = 0; i < Metadata.Count; i++)
+        {
+            var value = RenderLogEvent(Metadata[i].Layout, logEvent);
+
+            // Most events render empty for request-scoped metadata (startup, background workers).
+            // Sending rid="" on those would be noise and would burn one of Loki's per-entry slots.
+            if(string.IsNullOrEmpty(value))
+                continue;
+
+            (rendered ??= new List<LokiMetadata>(Metadata.Count)).Add(new LokiMetadata(Metadata[i].Name, value));
+        }
+
+        return rendered;
     }
 
     private LokiLabels RenderAndMapLokiLabels(

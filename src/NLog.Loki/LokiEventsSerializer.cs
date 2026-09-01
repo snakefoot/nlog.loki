@@ -58,6 +58,7 @@ internal class LokiEventsSerializer : JsonConverter<IEnumerable<LokiEvent>>
                 var timestamp = UnixDateTimeConverter.ToUnixTimeNs(@event.Timestamp).ToString("g", CultureInfo.InvariantCulture);
                 writer.WriteStringValue(timestamp);
                 writer.WriteStringValue(@event.Line);
+                LokiStructuredMetadata.Write(writer, @event.Metadata);
                 writer.WriteEndArray();
             }
             writer.WriteEndArray();
