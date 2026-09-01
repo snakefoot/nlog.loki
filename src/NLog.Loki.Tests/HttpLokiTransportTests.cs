@@ -193,4 +193,66 @@ public class HttpLokiTransportTests
             serializedJsonMessage,
             Is.EqualTo("{\"streams\":[{\"stream\":{\"env\":\"unittest\",\"job\":\"Job1\"},\"values\":[[\"1640598506000000000\",\"Info|Receive message from A with destination B.\"],[\"1640598508200000000\",\"Info|Another event has occured here.\"],[\"1640598505100000000\",\"Info|Event from another stream.\"]]}]}"));
     }
+
+    private static LokiLabels Labels() =>
+        new(new HashSet<LokiLabel> { new LokiLabel("env", "unittest"), new LokiLabel("job", "Job1") });
+
+
+    [Test]
+    public async Task SerializeStructuredMetadata()
+    {
+        var date = new DateTime(2021, 12, 27, 9, 48, 26, DateTimeKind.Utc);
+        var events = new[]
+        {
+            new LokiEvent(Labels(), date, "Info|With metadata.",
+                new[] { new LokiMetadata("trace_id", "abc123"), new LokiMetadata("user_id", "42") }),
+            new LokiEvent(Labels(), date + TimeSpan.FromSeconds(1), "Info|Without metadata."),
+        };
+
+        string serializedJsonMessage = null;
+        var httpClient = Substitute.For<ILokiHttpClient>();
+        _ = httpClient
+            .PostAsync("loki/api/v1/push", Arg.Any<HttpContent>())
+            .Returns(async (info) =>
+            {
+                serializedJsonMessage = await info.Arg<HttpContent>().ReadAsStringAsync().ConfigureAwait(false);
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            });
+
+        using var transport = new HttpLokiTransport(httpClient, orderWrites: false, CompressionLevel.NoCompression);
+        await transport.WriteLogEventsAsync(events).ConfigureAwait(false);
+
+        // The event with metadata gets the optional third element; the one without is untouched.
+        Assert.That(
+            serializedJsonMessage,
+            Is.EqualTo("{\"streams\":[{\"stream\":{\"env\":\"unittest\",\"job\":\"Job1\"},\"values\":[" +
+                       "[\"1640598506000000000\",\"Info|With metadata.\",{\"trace_id\":\"abc123\",\"user_id\":\"42\"}]," +
+                       "[\"1640598507000000000\",\"Info|Without metadata.\"]]}]}"));
+    }
+
+    [Test]
+    public async Task SerializeStructuredMetadataSingleEvent()
+    {
+        var date = new DateTime(2021, 12, 27, 9, 48, 26, DateTimeKind.Utc);
+        var @event = new LokiEvent(Labels(), date, "Info|Single.",
+            new[] { new LokiMetadata("trace_id", "abc123") });
+
+        string serializedJsonMessage = null;
+        var httpClient = Substitute.For<ILokiHttpClient>();
+        _ = httpClient
+            .PostAsync("loki/api/v1/push", Arg.Any<HttpContent>())
+            .Returns(async (info) =>
+            {
+                serializedJsonMessage = await info.Arg<HttpContent>().ReadAsStringAsync().ConfigureAwait(false);
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            });
+
+        using var transport = new HttpLokiTransport(httpClient, orderWrites: false, CompressionLevel.NoCompression);
+        await transport.WriteLogEventsAsync(@event).ConfigureAwait(false);
+
+        Assert.That(
+            serializedJsonMessage,
+            Is.EqualTo("{\"streams\":[{\"stream\":{\"env\":\"unittest\",\"job\":\"Job1\"},\"values\":[" +
+                       "[\"1640598506000000000\",\"Info|Single.\",{\"trace_id\":\"abc123\"}]]}]}"));
+    }
 }
