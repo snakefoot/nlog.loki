@@ -8,8 +8,7 @@ internal static class LokiStructuredMetadata
 {
     /// <summary>
     /// Writes the optional third element of a Loki push entry: [ts, line, {metadata}].
-    /// Omitted entirely when there is no metadata, so payloads for targets that do not configure
-    /// any stay byte-identical to before.
+    /// Omitted entirely when there is no metadata.
     /// </summary>
     /// <remarks>See https://grafana.com/docs/loki/latest/reference/loki-http-api/#ingest-logs</remarks>
     public static void Write(Utf8JsonWriter writer, IReadOnlyList<LokiMetadata> metadata)

@@ -70,11 +70,6 @@ public class LokiTarget : AsyncTaskTarget
     [ArrayParameter(typeof(LokiTargetLabel), "label")]
     public IList<LokiTargetLabel> Labels { get; } = new List<LokiTargetLabel>();
 
-    /// <summary>
-    /// Loki structured metadata, rendered per event. Unlike labels these are not indexed and do not
-    /// take part in stream identity, so high-cardinality values (request id, user id, trace id) are
-    /// safe here where they would be ruinous as labels.
-    /// </summary>
     [ArrayParameter(typeof(LokiTargetMetadata), "metadata")]
     public IList<LokiTargetMetadata> Metadata { get; } = new List<LokiTargetMetadata>();
 
@@ -130,8 +125,8 @@ public class LokiTarget : AsyncTaskTarget
         {
             var value = RenderLogEvent(Metadata[i].Layout, logEvent);
 
-            // Most events render empty for request-scoped metadata (startup, background workers).
-            // Sending rid="" on those would be noise and would burn one of Loki's per-entry slots.
+            // Many events will render an empty value for a metadata field (e.g., request ID not set)
+            // Better to omit the metadata field entirely than to send an empty value
             if(string.IsNullOrEmpty(value))
                 continue;
 

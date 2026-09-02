@@ -3,9 +3,6 @@ using NLog.Layouts;
 
 namespace NLog.Loki;
 
-/// <summary>
-/// Configuration item behind a &lt;metadata&gt; element on the Loki target.
-/// </summary>
 [NLogConfigurationItem]
 public class LokiTargetMetadata
 {

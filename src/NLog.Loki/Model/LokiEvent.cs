@@ -11,10 +11,6 @@ internal class LokiEvent
 
     public string Line { get; }
 
-    /// <summary>
-    /// Loki structured metadata. Deliberately not part of <see cref="Labels"/>: metadata varies per
-    /// event, and folding it into the stream identity would create a stream per distinct value.
-    /// </summary>
     public IReadOnlyList<LokiMetadata> Metadata { get; }
 
     public LokiEvent(LokiLabels labels, DateTime timestamp, string line, IReadOnlyList<LokiMetadata> metadata = null)

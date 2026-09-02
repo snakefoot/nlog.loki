@@ -68,11 +68,8 @@ Under .NET Core, [remember to register](https://github.com/nlog/nlog/wiki/Regist
       <!-- Grafana Loki requires at least one label associated with the log stream. 
       Make sure you specify at least one label here. -->
       <label name="app" layout="my-app-name" />
-
-      <!-- Structured metadata: high-cardinality values that are queryable but not indexed,
-      so they do not create a new stream per distinct value. Requires Loki 3.0+. -->
-      <metadata name="trace_id" layout="${activity:property=TraceId}" />
       <label name="server" layout="${hostname:lowercase=true}" />
+      <metadata name="trace_id" layout="${activity:property=TraceId}" />
     </target>
   </targets>
 
@@ -98,18 +95,10 @@ Under .NET Core, [remember to register](https://github.com/nlog/nlog/wiki/Regist
 
 `label` elements can be used to enrich messages with additional [labels](https://grafana.com/docs/loki/latest/design-documents/labels/). `label/@layout` support usual NLog layout renderers.
 
+`metadata` elements attach [structured metadata](https://grafana.com/docs/loki/latest/get-started/labels/structured-metadata/) to each log entry (Loki 3.0+). `metadata/@layout` supports usual NLog layout renderers.
+
 `layout` - While it is possible to define a simple layout structure in the attributes of the target configuration,
   prefer using a JsonLayout to structure your logs. This will allow better parsing in Grafana Loki.
-
-`metadata` elements attach [structured metadata](https://grafana.com/docs/loki/latest/get-started/labels/structured-metadata/) to each log entry (Loki 3.0+). `metadata/@layout` supports the usual NLog layout renderers, and is rendered per event.
-
-Unlike labels, structured metadata is not indexed and does not take part in stream identity, so high-cardinality values that would be ruinous as labels are safe here — request ids, trace ids, user ids. Grafana recommends it for values that are _"often used in queries but have high cardinality"_ and that do _"not exist in the log line"_. Query it without a parser:
-
-```
-{app="my-app-name"} | trace_id="abc123"
-```
-
-Metadata whose layout renders empty is omitted, and entries with no metadata at all are serialized exactly as before, so the wire format is unchanged for existing configurations. Loki enforces a limit of 128 metadata entries and 64KB per log line.
 
 `eventPropertiesAsLabels`: creates one Grafana Loki's label per event property. Beware, this goes against [Grafana Loki's best practices](https://grafana.com/docs/loki/latest/best-practices/) since _Too many label value combinations leads to too many streams._ In order to structure your logs, you are advised to keep away from this feature and to use the `JsonLayout` provided in the example (default `false`).
 
