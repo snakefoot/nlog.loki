@@ -70,6 +70,9 @@ public class LokiTarget : AsyncTaskTarget
     [ArrayParameter(typeof(LokiTargetLabel), "label")]
     public IList<LokiTargetLabel> Labels { get; } = new List<LokiTargetLabel>();
 
+    [ArrayParameter(typeof(LokiTargetMetadata), "metadata")]
+    public IList<LokiTargetMetadata> Metadata { get; } = new List<LokiTargetMetadata>();
+
     private const string TenantHeader = "X-Scope-OrgID";
 
     public LokiTarget()
@@ -109,7 +112,28 @@ public class LokiTarget : AsyncTaskTarget
     private LokiEvent GetLokiEvent(LogEventInfo logEvent)
     {
         var labels = _defaultStaticLabels ?? RenderAndMapLokiLabels(Labels, logEvent, EventPropertiesAsLabels);
-        return new LokiEvent(labels, logEvent.TimeStamp, RenderLogEvent(Layout, logEvent));
+        return new LokiEvent(labels, logEvent.TimeStamp, RenderLogEvent(Layout, logEvent), RenderMetadata(logEvent));
+    }
+
+    private IReadOnlyList<LokiMetadata> RenderMetadata(LogEventInfo logEvent)
+    {
+        if(Metadata.Count == 0)
+            return null;
+
+        List<LokiMetadata> rendered = null;
+        for(var i = 0; i < Metadata.Count; i++)
+        {
+            var value = RenderLogEvent(Metadata[i].Layout, logEvent);
+
+            // Many events will render an empty value for a metadata field (e.g., request ID not set)
+            // Better to omit the metadata field entirely than to send an empty value
+            if(string.IsNullOrEmpty(value))
+                continue;
+
+            (rendered ??= new List<LokiMetadata>(Metadata.Count)).Add(new LokiMetadata(Metadata[i].Name, value));
+        }
+
+        return rendered;
     }
 
     private LokiLabels RenderAndMapLokiLabels(

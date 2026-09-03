@@ -69,6 +69,7 @@ Under .NET Core, [remember to register](https://github.com/nlog/nlog/wiki/Regist
       Make sure you specify at least one label here. -->
       <label name="app" layout="my-app-name" />
       <label name="server" layout="${hostname:lowercase=true}" />
+      <metadata name="trace_id" layout="${scopeproperty:item=request_id}" />
     </target>
   </targets>
 
@@ -93,6 +94,8 @@ Under .NET Core, [remember to register](https://github.com/nlog/nlog/wiki/Regist
 - `smallestSize`: supported by .NET 6 or greater only. The compression operation should create output as small as possible, even if the operation takes a longer time to complete.
 
 `label` elements can be used to enrich messages with additional [labels](https://grafana.com/docs/loki/latest/design-documents/labels/). `label/@layout` support usual NLog layout renderers.
+
+`metadata` elements attach [structured metadata](https://grafana.com/docs/loki/latest/get-started/labels/structured-metadata/) to each log entry (Loki 3.0+). `metadata/@layout` supports usual NLog layout renderers.
 
 `layout` - While it is possible to define a simple layout structure in the attributes of the target configuration,
   prefer using a JsonLayout to structure your logs. This will allow better parsing in Grafana Loki.
