@@ -161,73 +161,16 @@ public class LokiTarget : AsyncTaskTarget
         {
             foreach(var property in logEvent.Properties)
             {
-                var value = FormatPropertyValue(property.Value);
-
 #if NETSTANDARD2_0 || NETFRAMEWORK
                 (metadataCollection ??= new HashSet<LokiMetadata>())
 #else
                 (metadataCollection ??= new HashSet<LokiMetadata>(metadataCount))
 #endif
-                    .Add(new LokiMetadata(property.Key?.ToString() ?? string.Empty, value));
+                    .Add(new LokiMetadata(property.Key?.ToString() ?? string.Empty, property.Value ?? "null"));
             }
         }
 
         return metadataCollection;
-    }
-
-    private static string FormatPropertyValue(object propertyValue)
-    {
-        return propertyValue switch
-        {
-            null => string.Empty,
-            string value => value,
-            bool value => value ? "true" : "false",
-            int value => FormatPropertyInteger(value),
-            long value => FormatPropertyInteger(value),
-            DateTime value => value.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
-            DateTimeOffset value => value.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
-#if NET
-            DateOnly value => value.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
-            TimeOnly value => value.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
-#endif
-            IFormattable value => value.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
-            System.Collections.IList value => $"Count={value.Count}",   // Array + List<T>
-            System.Collections.IDictionary value => $"Count={value.Count}",
-            _ => FormatPropertyValueSafe(propertyValue),
-        };
-    }
-
-    private static string FormatPropertyValueSafe(object propertyValue)
-    {
-        try
-        {
-            return propertyValue.ToString() ?? string.Empty;
-        }
-        catch(Exception ex)
-        {
-            InternalLogger.Warn(ex, "LokiTarget: Failed to format property value of type {0}.", propertyValue.GetType());
-            return string.Empty;
-        }
-    }
-
-    private static string FormatPropertyInteger(long propertyValue)
-    {
-        switch(propertyValue)
-        {
-            case 0: return "0";
-            case 1: return "1";
-            case 2: return "2";
-            case 3: return "3";
-            case 4: return "4";
-            case 5: return "5";
-            case 6: return "6";
-            case 7: return "7";
-            case 8: return "8";
-            case 9: return "9";
-            case 10: return "10";
-            case -1: return "-1";
-            default: return propertyValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        }
     }
 
     private LokiLabels RenderLokiLabels(LogEventInfo logEvent)
@@ -256,7 +199,7 @@ public class LokiTarget : AsyncTaskTarget
         if(EventPropertiesAsLabels && logEvent.HasProperties)
         {
             foreach(var property in logEvent.Properties)
-                _ = set.Add(new LokiLabel(property.Key.ToString(), FormatPropertyValue(property.Value)));
+                _ = set.Add(new LokiLabel(property.Key.ToString(), property.Value?.ToString() ?? "null"));
         }
 
         return new LokiLabels(set);

@@ -21,7 +21,7 @@ public class HttpLokiTransportTests
         var date = new DateTime(2021, 12, 27, 9, 48, 26, DateTimeKind.Utc);
         for(var i = 0; i < numberEvents; i++)
         {
-            yield return new(new LokiLabels(new HashSet<LokiLabel> { new LokiLabel("env", "unittest"), new LokiLabel    ("job", "Job1") }), date, "Info|Receive message from A with destination B.");
+            yield return new(new LokiLabels(new HashSet<LokiLabel> { new LokiLabel("env", "unittest"), new LokiLabel("job", "Job1") }), date, "Info|Receive message from A with destination B.");
             i++;
             yield return new(new LokiLabels(new HashSet<LokiLabel> { new LokiLabel("env", "unittest"), new LokiLabel("job", "Job1") }), date + TimeSpan.FromSeconds(2.2), "Info|Another event has occured here.");
             i++;

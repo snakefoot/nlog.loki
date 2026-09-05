@@ -6,9 +6,9 @@ internal readonly struct LokiMetadata : IEquatable<LokiMetadata>
 {
     public string Name { get; }
 
-    public string Value { get; }
+    public object Value { get; }
 
-    public LokiMetadata(string name, string value)
+    public LokiMetadata(string name, object value)
     {
         Name = name ?? throw new ArgumentNullException(nameof(name));
         Value = value ?? throw new ArgumentNullException(nameof(value));
