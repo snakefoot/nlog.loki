@@ -21,7 +21,7 @@ public class HttpLokiTransportTests
         var date = new DateTime(2021, 12, 27, 9, 48, 26, DateTimeKind.Utc);
         for(var i = 0; i < numberEvents; i++)
         {
-            yield return new(new LokiLabels(new HashSet<LokiLabel> { new LokiLabel("env", "unittest"), new LokiLabel("job", "Job1") }), date, "Info|Receive message from A with destination B.");
+            yield return new(new LokiLabels(new HashSet<LokiLabel> { new LokiLabel("env", "unittest"), new LokiLabel    ("job", "Job1") }), date, "Info|Receive message from A with destination B.");
             i++;
             yield return new(new LokiLabels(new HashSet<LokiLabel> { new LokiLabel("env", "unittest"), new LokiLabel("job", "Job1") }), date + TimeSpan.FromSeconds(2.2), "Info|Another event has occured here.");
             i++;
@@ -205,7 +205,7 @@ public class HttpLokiTransportTests
         var events = new[]
         {
             new LokiEvent(Labels(), date, "Info|With metadata.",
-                new[] { new LokiMetadata("trace_id", "abc123"), new LokiMetadata("user_id", "42") }),
+                new HashSet<LokiMetadata>(new[] { new LokiMetadata("trace_id", "abc123"), new LokiMetadata("user_id", "42") })),
             new LokiEvent(Labels(), date + TimeSpan.FromSeconds(1), "Info|Without metadata."),
         };
 
@@ -235,7 +235,7 @@ public class HttpLokiTransportTests
     {
         var date = new DateTime(2021, 12, 27, 9, 48, 26, DateTimeKind.Utc);
         var @event = new LokiEvent(Labels(), date, "Info|Single.",
-            new[] { new LokiMetadata("trace_id", "abc123") });
+            new HashSet<LokiMetadata>(new[] { new LokiMetadata("trace_id", "abc123") }));
 
         string serializedJsonMessage = null;
         var httpClient = Substitute.For<ILokiHttpClient>();

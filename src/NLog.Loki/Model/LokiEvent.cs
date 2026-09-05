@@ -11,9 +11,9 @@ internal class LokiEvent
 
     public string Line { get; }
 
-    public IReadOnlyList<LokiMetadata> Metadata { get; }
+    public HashSet<LokiMetadata> Metadata { get; }
 
-    public LokiEvent(LokiLabels labels, DateTime timestamp, string line, IReadOnlyList<LokiMetadata> metadata = null)
+    public LokiEvent(LokiLabels labels, DateTime timestamp, string line, HashSet<LokiMetadata> metadata = null)
     {
         Labels = labels ?? throw new ArgumentNullException(nameof(labels));
         Timestamp = timestamp;

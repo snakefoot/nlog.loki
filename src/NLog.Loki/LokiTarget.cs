@@ -31,6 +31,12 @@ public class LokiTarget : AsyncTaskTarget
 
     public Layout Tenant { get; set; }
 
+    /// <summary>
+    /// Include LogEvent Properties as Loki labels. Careful many unique labels, can cause Loki performance issues.
+    /// </summary>
+    /// <remarks>
+    /// Alternative use <see cref="IncludeEventProperties"/> to instead include as metadata.
+    /// </remarks>
     public bool EventPropertiesAsLabels { get; set; }
 
     /// <summary>
@@ -67,11 +73,20 @@ public class LokiTarget : AsyncTaskTarget
     public Layout ProxyUser { get; set; }
     public Layout ProxyPassword { get; set; }
 
+    /// <summary>
+    /// Labels are indexed by Loki, by creating stream identifiers. Many unique labels, can cause Loki performance issues.
+    /// </summary>
     [ArrayParameter(typeof(LokiTargetLabel), "label")]
     public IList<LokiTargetLabel> Labels { get; } = new List<LokiTargetLabel>();
 
-    [ArrayParameter(typeof(LokiTargetMetadata), "metadata")]
-    public IList<LokiTargetMetadata> Metadata { get; } = new List<LokiTargetMetadata>();
+    /// <summary>
+    /// Metadata is not indexed by Loki, and is stored as part of the log event. It can be used to store additional context information about the log event (Ex. RequestId / TraceId / UserId / etc.)
+    /// </summary>
+    /// <remarks>
+    /// Can be combined with <see cref="IncludeEventProperties"/> to also include LogEvent Properties as metadata.
+    /// </remarks>
+    [ArrayParameter(typeof(TargetPropertyWithContext), "metadata")]
+    public IList<TargetPropertyWithContext> Metadata => ContextProperties;
 
     private const string TenantHeader = "X-Scope-OrgID";
 
@@ -111,58 +126,137 @@ public class LokiTarget : AsyncTaskTarget
 
     private LokiEvent GetLokiEvent(LogEventInfo logEvent)
     {
-        var labels = _defaultStaticLabels ?? RenderAndMapLokiLabels(Labels, logEvent, EventPropertiesAsLabels);
+        var labels = _defaultStaticLabels ?? RenderLokiLabels(logEvent);
         return new LokiEvent(labels, logEvent.TimeStamp, RenderLogEvent(Layout, logEvent), RenderMetadata(logEvent));
     }
 
-    private IReadOnlyList<LokiMetadata> RenderMetadata(LogEventInfo logEvent)
+    private HashSet<LokiMetadata> RenderMetadata(LogEventInfo logEvent)
     {
-        if(Metadata.Count == 0)
+        var metadataCount = Metadata.Count;
+        if(IncludeEventProperties && logEvent.HasProperties)
+            metadataCount += logEvent.Properties.Count;
+        if(metadataCount == 0)
             return null;
 
-        List<LokiMetadata> rendered = null;
+        HashSet<LokiMetadata> metadataCollection = null;
         for(var i = 0; i < Metadata.Count; i++)
         {
-            var value = RenderLogEvent(Metadata[i].Layout, logEvent);
+            var metadata = Metadata[i];
+            var value = RenderLogEvent(metadata.Layout, logEvent);
 
             // Many events will render an empty value for a metadata field (e.g., request ID not set)
             // Better to omit the metadata field entirely than to send an empty value
-            if(string.IsNullOrEmpty(value))
+            if(!metadata.IncludeEmptyValue && string.IsNullOrEmpty(value))
                 continue;
 
-            (rendered ??= new List<LokiMetadata>(Metadata.Count)).Add(new LokiMetadata(Metadata[i].Name, value));
+#if NETSTANDARD2_0 || NETFRAMEWORK
+            (metadataCollection ??= new HashSet<LokiMetadata>())
+#else
+            (metadataCollection ??= new HashSet<LokiMetadata>(metadataCount))
+#endif
+                .Add(new LokiMetadata(metadata.Name, value));
         }
 
-        return rendered;
+        if (IncludeEventProperties && logEvent.HasProperties)
+        {
+            foreach(var property in logEvent.Properties)
+            {
+                var value = FormatPropertyValue(property.Value);
+
+#if NETSTANDARD2_0 || NETFRAMEWORK
+                (metadataCollection ??= new HashSet<LokiMetadata>())
+#else
+                (metadataCollection ??= new HashSet<LokiMetadata>(metadataCount))
+#endif
+                    .Add(new LokiMetadata(property.Key?.ToString() ?? string.Empty, value));
+            }
+        }
+
+        return metadataCollection;
     }
 
-    private LokiLabels RenderAndMapLokiLabels(
-    IList<LokiTargetLabel> lokiTargetLabels,
-    LogEventInfo logEvent,
-    bool eventPropertiesAsLabels)
+    private static string FormatPropertyValue(object propertyValue)
     {
-        var labelCount = lokiTargetLabels.Count;
-        if(eventPropertiesAsLabels && logEvent.HasProperties)
+        return propertyValue switch
+        {
+            null => string.Empty,
+            string value => value,
+            bool value => value ? "true" : "false",
+            int value => FormatPropertyInteger(value),
+            long value => FormatPropertyInteger(value),
+            DateTime value => value.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            DateTimeOffset value => value.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+#if NET
+            DateOnly value => value.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            TimeOnly value => value.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+#endif
+            IFormattable value => value.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
+            System.Collections.IList value => $"Count={value.Count}",   // Array + List<T>
+            System.Collections.IDictionary value => $"Count={value.Count}",
+            _ => FormatPropertyValueSafe(propertyValue),
+        };
+    }
+
+    private static string FormatPropertyValueSafe(object propertyValue)
+    {
+        try
+        {
+            return propertyValue.ToString() ?? string.Empty;
+        }
+        catch(Exception ex)
+        {
+            InternalLogger.Warn(ex, "LokiTarget: Failed to format property value of type {0}.", propertyValue.GetType());
+            return string.Empty;
+        }
+    }
+
+    private static string FormatPropertyInteger(long propertyValue)
+    {
+        switch(propertyValue)
+        {
+            case 0: return "0";
+            case 1: return "1";
+            case 2: return "2";
+            case 3: return "3";
+            case 4: return "4";
+            case 5: return "5";
+            case 6: return "6";
+            case 7: return "7";
+            case 8: return "8";
+            case 9: return "9";
+            case 10: return "10";
+            case -1: return "-1";
+            default: return propertyValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
+
+    private LokiLabels RenderLokiLabels(LogEventInfo logEvent)
+    {
+        var labelCount = Labels.Count;
+        if(EventPropertiesAsLabels && logEvent.HasProperties)
             labelCount += logEvent.Properties.Count;
         if(labelCount == 0)
             return EmptyLabels;
 
-#if NETSTANDARD || NETFRAMEWORK
+#if NETSTANDARD2_0 || NETFRAMEWORK
         var set = new HashSet<LokiLabel>();
 #else
         var set = new HashSet<LokiLabel>(labelCount);
 #endif
-        for(var i = 0; i < lokiTargetLabels.Count; i++)
-            _ = set.Add(new LokiLabel(lokiTargetLabels[i].Name, RenderLogEvent(lokiTargetLabels[i].Layout, logEvent)));
+        for(var i = 0; i < Labels.Count; i++)
+        {
+            var label = Labels[i];
+            _ = set.Add(new LokiLabel(label.Name, RenderLogEvent(label.Layout, logEvent)));
+        }
 
         // programmer might also want to create labels in loki using event properties
         // This goes against Loki best pratices as it tends to create too many streams.
         // But the feature was requested twice in a short span so it is included in the library,
         // with warnings in the readme.
-        if(eventPropertiesAsLabels && logEvent.HasProperties)
+        if(EventPropertiesAsLabels && logEvent.HasProperties)
         {
             foreach(var property in logEvent.Properties)
-                _ = set.Add(new LokiLabel(property.Key.ToString(), property.Value?.ToString() ?? ""));
+                _ = set.Add(new LokiLabel(property.Key.ToString(), FormatPropertyValue(property.Value)));
         }
 
         return new LokiLabels(set);
