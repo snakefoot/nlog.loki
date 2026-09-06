@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using NLog.Loki.Model;
@@ -23,26 +22,18 @@ internal class LokiEventSerializer : JsonConverter<LokiEvent>
         writer.WriteStartObject("stream");
         foreach(var label in value.Labels.Labels)
         {
-            try
-            {
-                var propertyValue = label.Value.ToString() ?? string.Empty;
-                writer.WritePropertyName(label.Label);
-                writer.WriteStringValue(propertyValue);
-            }
-            catch
-            {
-                writer.WritePropertyName(label.Label);
-                writer.WriteStringValue(string.Empty);
-            }
+            writer.WritePropertyName(label.Label);
+            writer.WriteStringValue(label.Value);
         }
         writer.WriteEndObject();
 
         writer.WriteStartArray("values");
         writer.WriteStartArray();
-        var timestamp = UnixDateTimeConverter.ToUnixTimeNs(value.Timestamp).ToString("g", CultureInfo.InvariantCulture);
-        writer.WriteStringValue(timestamp);
+
+        UnixDateTimeConverter.WriteAsUnixTimeNs(writer, value.Timestamp);
         writer.WriteStringValue(value.Line);
         LokiStructuredMetadata.Write(writer, value.Metadata);
+
         writer.WriteEndArray();
         writer.WriteEndArray();
 
