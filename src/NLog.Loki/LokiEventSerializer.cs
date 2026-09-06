@@ -23,8 +23,17 @@ internal class LokiEventSerializer : JsonConverter<LokiEvent>
         writer.WriteStartObject("stream");
         foreach(var label in value.Labels.Labels)
         {
-            writer.WritePropertyName(label.Label);
-            writer.WriteStringValue(label.Value);
+            try
+            {
+                var propertyValue = label.Value.ToString() ?? string.Empty;
+                writer.WritePropertyName(label.Label);
+                writer.WriteStringValue(propertyValue);
+            }
+            catch
+            {
+                writer.WritePropertyName(label.Label);
+                writer.WriteStringValue(string.Empty);
+            }
         }
         writer.WriteEndObject();
 

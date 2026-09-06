@@ -10,7 +10,7 @@ public class LokiTargetTests
 {
     [TestCase(true)]
     [TestCase(false)]
-    public void Write(bool dynamicTargetLabels)
+    public void Write(bool includeDynamicContext)
     {
         using var logFactory = new LogFactory();
 
@@ -19,7 +19,7 @@ public class LokiTargetTests
         using var lokiTarget = new LokiTarget
         {
             Endpoint = "http://grafana.lvh.me:3100",
-            IncludeScopeProperties = true,
+            IncludeEventProperties = includeDynamicContext,
             Labels = {
                 new LokiTargetLabel {
                     Name = "env",
@@ -31,12 +31,17 @@ public class LokiTargetTests
                 },
             }
         };
-        if (dynamicTargetLabels)
+        if (includeDynamicContext)
         {
             lokiTarget.Labels.Add(new LokiTargetLabel
             {
                 Name = "name",
                 Layout = Layout.FromString("${level:lowercase=true}")
+            });
+            lokiTarget.Metadata.Add(new Targets.TargetPropertyWithContext
+            {
+                Name = "threadid",
+                Layout = Layout.FromString("${threadid}")
             });
         }
 
@@ -51,7 +56,7 @@ public class LokiTargetTests
 
         for(var n = 0; n < 100; ++n)
         {
-            log.Info("Hello world {0}", n);
+            log.Info("Hello world {WorldCounter}", n);
 
             try
             {

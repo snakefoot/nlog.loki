@@ -205,7 +205,7 @@ public class HttpLokiTransportTests
         var events = new[]
         {
             new LokiEvent(Labels(), date, "Info|With metadata.",
-                new[] { new LokiMetadata("trace_id", "abc123"), new LokiMetadata("user_id", "42") }),
+                new HashSet<LokiMetadata>(new[] { new LokiMetadata("trace_id", "abc123"), new LokiMetadata("user_id", "42") })),
             new LokiEvent(Labels(), date + TimeSpan.FromSeconds(1), "Info|Without metadata."),
         };
 
@@ -235,7 +235,7 @@ public class HttpLokiTransportTests
     {
         var date = new DateTime(2021, 12, 27, 9, 48, 26, DateTimeKind.Utc);
         var @event = new LokiEvent(Labels(), date, "Info|Single.",
-            new[] { new LokiMetadata("trace_id", "abc123") });
+            new HashSet<LokiMetadata>(new[] { new LokiMetadata("trace_id", "abc123") }));
 
         string serializedJsonMessage = null;
         var httpClient = Substitute.For<ILokiHttpClient>();

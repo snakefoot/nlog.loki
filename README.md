@@ -93,12 +93,14 @@ Under .NET Core, [remember to register](https://github.com/nlog/nlog/wiki/Regist
 - `optimal`: the compression operation should be optimally compressed, even if the operation takes a longer time to complete.
 - `smallestSize`: supported by .NET 6 or greater only. The compression operation should create output as small as possible, even if the operation takes a longer time to complete.
 
+`layout` - While it is possible to define a simple layout structure in the attributes of the target configuration,
+  prefer using a JsonLayout to structure your logs. This will allow better parsing in Grafana Loki.
+
 `label` elements can be used to enrich messages with additional [labels](https://grafana.com/docs/loki/latest/design-documents/labels/). `label/@layout` support usual NLog layout renderers.
 
 `metadata` elements attach [structured metadata](https://grafana.com/docs/loki/latest/get-started/labels/structured-metadata/) to each log entry (Loki 3.0+). `metadata/@layout` supports usual NLog layout renderers.
 
-`layout` - While it is possible to define a simple layout structure in the attributes of the target configuration,
-  prefer using a JsonLayout to structure your logs. This will allow better parsing in Grafana Loki.
+`includeEventProperties` - Include LogEvent Properties as [structured metadata](https://grafana.com/docs/loki/latest/get-started/labels/structured-metadata/). (default `false`).
 
 `eventPropertiesAsLabels`: creates one Grafana Loki's label per event property. Beware, this goes against [Grafana Loki's best practices](https://grafana.com/docs/loki/latest/best-practices/) since _Too many label value combinations leads to too many streams._ In order to structure your logs, you are advised to keep away from this feature and to use the `JsonLayout` provided in the example (default `false`).
 
