@@ -22,7 +22,6 @@ public class LokiTarget : AsyncTaskTarget
     private LokiLabels _defaultStaticLabels = null;
     private readonly Lazy<ILokiTransport> _lazyLokiTransport;
 
-    [RequiredParameter]
     public Layout Endpoint { get; set; }
 
     public Layout Username { get; set; }
@@ -74,7 +73,8 @@ public class LokiTarget : AsyncTaskTarget
     public Layout ProxyPassword { get; set; }
 
     /// <summary>
-    /// Labels are indexed by Loki, by creating stream identifiers. Many unique labels, can cause Loki performance issues.
+    /// Labels are indexed by Loki, by creating stream identifiers.
+    /// Many unique labels, can cause Loki performance issues.
     /// </summary>
     [ArrayParameter(typeof(LokiTargetLabel), "label")]
     public IList<LokiTargetLabel> Labels { get; } = new List<LokiTargetLabel>();
@@ -101,6 +101,18 @@ public class LokiTarget : AsyncTaskTarget
     {
         base.InitializeTarget();
         _defaultStaticLabels = ResolveDefaultStaticLabels(Labels, EventPropertiesAsLabels);
+
+        if(Endpoint is null || ReferenceEquals(Endpoint, Layout.Empty))
+            throw new NLogConfigurationException("Layout Endpoint-property must be assigned.");
+
+        foreach(var labelTarget in Labels)
+        {
+            if(string.IsNullOrWhiteSpace(labelTarget.Name))
+                throw new NLogConfigurationException("Label.Name-property must be assigned.");
+
+            if(labelTarget.Layout is null || ReferenceEquals(labelTarget.Layout, Layout.Empty))
+                throw new NLogConfigurationException("Label.Layout-property must be assigned.");
+        }
     }
 
     protected override Task WriteAsyncTask(LogEventInfo logEvent, CancellationToken cancellationToken)
