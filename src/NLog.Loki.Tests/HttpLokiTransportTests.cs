@@ -21,9 +21,9 @@ public class HttpLokiTransportTests
         var date = new DateTime(2021, 12, 27, 9, 48, 26, DateTimeKind.Utc);
         for(var i = 0; i < numberEvents; i++)
         {
-            yield return new(new LokiLabels(new HashSet<LokiLabel> { new LokiLabel("env", "unittest"), new LokiLabel("job", "Job1") }), date, "Info|Receive message from A with destination B.");
+            yield return new(new LokiLabels(new HashSet<LokiLabel> { new LokiLabel("env", "unittest"), new LokiLabel("job", "Job1") }), date + TimeSpan.FromSeconds(2.2), "Info|Receive message from A with destination B.");
             i++;
-            yield return new(new LokiLabels(new HashSet<LokiLabel> { new LokiLabel("env", "unittest"), new LokiLabel("job", "Job1") }), date + TimeSpan.FromSeconds(2.2), "Info|Another event has occured here.");
+            yield return new(new LokiLabels(new HashSet<LokiLabel> { new LokiLabel("env", "unittest"), new LokiLabel("job", "Job2") }), date, "Info|Another event has occured here.");
             i++;
             yield return new(new LokiLabels(new HashSet<LokiLabel> { new LokiLabel("env", "unittest"), new LokiLabel("job", "Job1") }), date - TimeSpan.FromSeconds(0.9), "Info|Event from another stream.");
         }
@@ -55,7 +55,7 @@ public class HttpLokiTransportTests
         // Verify the json message format
         Assert.That(
             serializedJsonMessage,
-            Is.EqualTo("{\"streams\":[{\"stream\":{\"env\":\"unittest\",\"job\":\"Job1\"},\"values\":[[\"1640598506000000000\",\"Info|Receive message from A with destination B.\"],[\"1640598508200000000\",\"Info|Another event has occured here.\"],[\"1640598505100000000\",\"Info|Event from another stream.\"]]}]}"));
+            Is.EqualTo("{\"streams\":[{\"stream\":{\"env\":\"unittest\",\"job\":\"Job1\"},\"values\":[[\"1640598508200000000\",\"Info|Receive message from A with destination B.\"],[\"1640598505100000000\",\"Info|Event from another stream.\"]]},{\"stream\":{\"env\":\"unittest\",\"job\":\"Job2\"},\"values\":[[\"1640598506000000000\",\"Info|Another event has occured here.\"]]}]}"));
     }
 
     [Test]
@@ -84,7 +84,7 @@ public class HttpLokiTransportTests
         // Verify the json message format
         Assert.That(
             serializedJsonMessage,
-            Is.EqualTo("{\"streams\":[{\"stream\":{\"env\":\"unittest\",\"job\":\"Job1\"},\"values\":[[\"1640598505100000000\",\"Info|Event from another stream.\"],[\"1640598506000000000\",\"Info|Receive message from A with destination B.\"],[\"1640598508200000000\",\"Info|Another event has occured here.\"]]}]}"));
+            Is.EqualTo("{\"streams\":[{\"stream\":{\"env\":\"unittest\",\"job\":\"Job1\"},\"values\":[[\"1640598505100000000\",\"Info|Event from another stream.\"],[\"1640598508200000000\",\"Info|Receive message from A with destination B.\"]]},{\"stream\":{\"env\":\"unittest\",\"job\":\"Job2\"},\"values\":[[\"1640598506000000000\",\"Info|Another event has occured here.\"]]}]}"));
     }
 
     [Test]
@@ -191,7 +191,7 @@ public class HttpLokiTransportTests
         // Verify the json message format
         Assert.That(
             serializedJsonMessage,
-            Is.EqualTo("{\"streams\":[{\"stream\":{\"env\":\"unittest\",\"job\":\"Job1\"},\"values\":[[\"1640598506000000000\",\"Info|Receive message from A with destination B.\"],[\"1640598508200000000\",\"Info|Another event has occured here.\"],[\"1640598505100000000\",\"Info|Event from another stream.\"]]}]}"));
+            Is.EqualTo("{\"streams\":[{\"stream\":{\"env\":\"unittest\",\"job\":\"Job1\"},\"values\":[[\"1640598508200000000\",\"Info|Receive message from A with destination B.\"],[\"1640598505100000000\",\"Info|Event from another stream.\"]]},{\"stream\":{\"env\":\"unittest\",\"job\":\"Job2\"},\"values\":[[\"1640598506000000000\",\"Info|Another event has occured here.\"]]}]}"));
     }
 
     private static LokiLabels Labels() =>
