@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using NLog.Loki.Model;
@@ -119,18 +118,8 @@ internal class LokiEventsSerializer : JsonConverter<IEnumerable<LokiEvent>>
     {
         writer.WriteStartArray();
 
-        var timestamp = UnixDateTimeConverter.ToUnixTimeNs(logEvent.Timestamp);
-#if NET || NETSTANDARD2_1_OR_GREATER
-        Span<char> buffer = stackalloc char[32];
-        if (timestamp.TryFormat(buffer, out var charsWritten, "g", CultureInfo.InvariantCulture))
-            writer.WriteStringValue(buffer[..charsWritten]);
-        else
-            writer.WriteStringValue(timestamp.ToString("g", CultureInfo.InvariantCulture));
-#else
-        writer.WriteStringValue(timestamp.ToString("g", CultureInfo.InvariantCulture));
-#endif
+        UnixDateTimeConverter.WriteAsUnixTimeNs(writer, logEvent.Timestamp);
         writer.WriteStringValue(logEvent.Line);
-
         LokiStructuredMetadata.Write(writer, logEvent.Metadata);
 
         writer.WriteEndArray();
