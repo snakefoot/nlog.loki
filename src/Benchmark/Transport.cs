@@ -13,7 +13,7 @@ namespace Benchmark;
 public class Transport
 {
     [Params(CompressionLevel.NoCompression, CompressionLevel.Fastest, CompressionLevel.Optimal,
-#if NET6_0_OR_GREATER
+#if NET
         CompressionLevel.SmallestSize
 #endif
         )]

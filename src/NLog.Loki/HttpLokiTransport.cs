@@ -56,7 +56,7 @@ internal sealed class HttpLokiTransport : ILokiTransport
             InternalLogger.Error("LokiTarget: Failed pushing logs to Loki. Code: {0}. Reason: {1}. Message: {2}.",
                 response.StatusCode, response.ReasonPhrase, content);
 
-#if NET6_0_OR_GREATER
+#if NET
             throw new HttpRequestException("Failed pushing logs to Loki.", inner: null, response.StatusCode);
 #else
             throw new HttpRequestException("Failed pushing logs to Loki.");
