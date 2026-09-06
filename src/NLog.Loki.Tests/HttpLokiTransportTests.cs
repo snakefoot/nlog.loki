@@ -147,7 +147,7 @@ public class HttpLokiTransportTests
         var exception = Assert.ThrowsAsync<HttpRequestException>((Func<Task>)(() => transport.WriteLogEventsAsync(CreateLokiEvents())));
         Assert.That(exception.Message, Is.EqualTo("Failed pushing logs to Loki."));
 
-#if NET6_0_OR_GREATER
+#if NET
         Assert.That(exception.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
 #endif
     }
@@ -155,7 +155,7 @@ public class HttpLokiTransportTests
     [Test]
     [TestCase(CompressionLevel.Fastest)]
     [TestCase(CompressionLevel.Optimal)]
-#if NET6_0_OR_GREATER
+#if NET
     [TestCase(CompressionLevel.SmallestSize)]
 #endif
     public async Task CompressMessage(CompressionLevel level)
